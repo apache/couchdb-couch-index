@@ -229,7 +229,7 @@ reset_indexes(DbName, Root) ->
     end,
     lists:foreach(Fun, ets:lookup(?BY_DB, DbName)),
     Path = couch_index_util:index_dir("", DbName),
-    couch_file:nuke_dir(Root, Path).
+    couch_server:delete_dir(Root, Path).
 
 
 add_to_ets(DbName, Sig, DDocId, Pid) ->
