@@ -207,12 +207,14 @@ purge_index(Db, Mod, IdxState) ->
             {ok, DbOldestPurgeSeq} = couch_db:get_oldest_purge_seq(Db),
             if IdxPurgeSeq >= DbOldestPurgeSeq ->
                 FoldFun = fun(PurgeSeq, {Id, Revs}, Acc) ->
-                    {ok, [ {PurgeSeq, Id, Revs} | Acc]}
+                    {ok, [{PurgeSeq, Id, Revs} | Acc]}
                 end,
-                {ok, PurgeSeqIdRevs} = couch_db:fold_purged_docs(Db, IdxPurgeSeq, FoldFun, [], []),
-                lists:foldr(fun({PSeq, Id, Revs}, State) ->
-                    Mod:purge(Db, PSeq, [{Id, Revs}], State) end,
-                    IdxState, PurgeSeqIdRevs);
+                {ok, PurgeSeqIdRevs} = couch_db:fold_purged_docs(Db,
+                        IdxPurgeSeq, FoldFun, [], []),
+                % using foldr to avoid unnecessary lists:reverse/1 call
+                lists:foldr(fun({PSeq, Id, Revs}, StateAcc) ->
+                    Mod:purge(Db, PSeq, [{Id, Revs}], StateAcc)
+                end, IdxState, PurgeSeqIdRevs);
             true ->
                 reset
             end
