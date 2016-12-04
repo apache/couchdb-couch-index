@@ -159,7 +159,9 @@ update(Idx, Mod, IdxState) ->
                 {false, <<"_design/", _/binary>>} ->
                     {nil, Seq};
                 _ when Deleted ->
-                    {#doc{id=DocId, deleted=true}, Seq};
+                    [RI|_] = DocInfo#doc_info.revs,
+                    {Pos, Rev} = RI#rev_info.rev,
+                    {#doc{id=DocId, revs={Pos, [Rev]}, deleted=true}, Seq};
                 _ ->
                     {ok, Doc} = couch_db:open_doc_int(Db, DocInfo, DocOpts),
                     {Doc, Seq}
