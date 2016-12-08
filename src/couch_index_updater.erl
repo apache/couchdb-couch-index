@@ -198,7 +198,7 @@ update(Idx, Mod, IdxState) ->
 
 
 purge_index(Db, Mod, IdxState) ->
-    {ok, DbPurgeSeq} = couch_db:get_purge_seq(Db),
+    DbPurgeSeq = couch_db:get_purge_seq(Db),
     IdxPurgeSeq = Mod:get(purge_seq, IdxState),
     if
         IdxPurgeSeq == DbPurgeSeq ->
