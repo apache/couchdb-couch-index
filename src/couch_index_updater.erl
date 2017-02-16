@@ -133,10 +133,7 @@ update(Idx, Mod, IdxState) ->
         DbUpdateSeq = couch_db:get_update_seq(Db),
         DbCommittedSeq = couch_db:get_committed_update_seq(Db),
 
-        PurgedIdxState = case purge_index(Db, Mod, IdxState) of
-            {ok, IdxState0} -> IdxState0;
-            reset -> exit({reset, self()})
-        end,
+        {ok, PurgedIdxState} = purge_index(Db, Mod, IdxState),
 
         NumChanges = couch_db:count_changes_since(Db, CurrSeq),
 
@@ -204,22 +201,17 @@ purge_index(Db, Mod, IdxState) ->
         IdxPurgeSeq == DbPurgeSeq ->
             {ok, IdxState};
         true ->
-            {ok, DbOldestPurgeSeq} = couch_db:get_oldest_purge_seq(Db),
-            % increase by 1, since we need to collect purges starting from IdxPurgeSeq+1
-            if (IdxPurgeSeq + 1) >= DbOldestPurgeSeq ->
-                FoldFun = fun(PurgeSeq, {Id, Revs}, Acc) ->
-                    {ok, [{PurgeSeq, Id, Revs} | Acc]}
-                end,
-                {ok, PurgeSeqIdRevs} = couch_db:fold_purged_docs(Db,
-                        IdxPurgeSeq, FoldFun, [], []),
-                % using foldr to avoid unnecessary lists:reverse/1 call
-                NewStateAcc = lists:foldr(fun({PSeq, Id, Revs}, StateAcc0) ->
-                    {ok, StateAcc} = Mod:purge(Db, PSeq,
-                            [{Id, Revs}], StateAcc0),
-                    StateAcc
-                end, IdxState, PurgeSeqIdRevs),
-                {ok, NewStateAcc};
-            true ->
-                reset
-            end
+            FoldFun = fun(PurgeSeq, {Id, Revs}, Acc) ->
+                {ok, [{PurgeSeq, Id, Revs} | Acc]}
+            end,
+            {ok, PurgeSeqIdRevs} = couch_db:fold_purged_docs(Db,
+                    IdxPurgeSeq, FoldFun, [], []),
+            % using foldr to avoid unnecessary lists:reverse/1 call
+            NewStateAcc = lists:foldr(fun({PSeq, Id, Revs}, StateAcc0) ->
+                {ok, StateAcc} = Mod:purge(Db, PSeq,
+                        [{Id, Revs}], StateAcc0),
+                StateAcc
+            end, IdxState, PurgeSeqIdRevs),
+            Mod:update_local_purge_doc(Db, NewStateAcc),
+            {ok, NewStateAcc}
     end.
