@@ -202,15 +202,16 @@ purge_index(Db, Mod, IdxState) ->
             {ok, IdxState};
         true ->
             FoldFun = fun({PurgeSeq, _UUId, Id, Revs}, Acc) ->
-                Mod:purge(Db, PurgeSeq, [{Id, Revs}], Acc)
+                {ok, StateAcc} = Mod:purge(Db, PurgeSeq, [{Id, Revs}], Acc),
+                StateAcc
             end,
             {ok, NewStateAcc} = couch_db:fold_purged_docs(
-                    Db,
-                    IdxPurgeSeq,
-                    FoldFun,
-                    IdxState,
-                    []
-                ),
+                Db,
+                IdxPurgeSeq,
+                FoldFun,
+                IdxState,
+                []
+            ),
             Mod:update_local_purge_doc(Db, NewStateAcc),
             {ok, NewStateAcc}
     end.
